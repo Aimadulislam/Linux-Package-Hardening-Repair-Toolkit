@@ -1,0 +1,131 @@
+#!/usr/bin/env bash
+# Linux Package Hardening & Repair Toolkit - CLI Executable Entrypoint
+# Location: linux-hardening-toolkit/toolkit
+
+# Define active absolute script paths
+TOOLKIT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$TOOLKIT_ROOT/scripts"
+
+# Source helpers
+if [ -f "$SCRIPT_DIR/helpers.sh" ]; then
+    source "$SCRIPT_DIR/helpers.sh"
+else
+    echo "Helpers script not found at $SCRIPT_DIR/helpers.sh! Exiting."
+    exit 1
+fi
+
+VERSION="1.2.0"
+VERBOSE=false
+DRY_RUN=false
+AUTO_MODE=false
+
+show_help() {
+    echo -e "${BOLD}Linux Package Hardening & Repair Toolkit (v$VERSION)${NC}"
+    echo -e "Usage: toolkit <subcommand> [options]"
+    echo ""
+    echo -e "${BOLD}Available Subcommands:${NC}"
+    echo -e "  update             Update package repository databases."
+    echo -e "  upgrade            Run safe package upgrades (add --dist for distro-upgrade)."
+    echo -e "  repair             Scan for and repair broken package dependencies & caches."
+    echo -e "  cleanup            Purge unused packages, clean cache indexes, clear orphans."
+    echo -e "  backup             Create a timestamped compressed backup of package states."
+    echo -e "  restore            Restore package state from an archive backup."
+    echo -e "  security           Perform security hardening, SSH audit, SUID audit & scan."
+    echo -e "  report             Compile system diagnostics metrics and write report files."
+    echo -e "  menu               Launch the console interactive terminal menu."
+    echo ""
+    echo -e "${BOLD}Global Options:${NC}"
+    echo -e "  --help, -h         Display this information manual."
+    echo -e "  --version, -v      Show application version metrics."
+    echo -e "  --dry-run          Simulate commands without writing core changes."
+    echo -e "  --verbose          Enable advanced command execution tracing."
+    echo ""
+    echo -e "Example: ${CYAN}sudo toolkit update${NC}"
+}
+
+# Parse parameters
+if [ $# -eq 0 ]; then
+    show_help
+    exit 0
+fi
+
+SUBCOMMAND="$1"
+shift
+
+# Evaluate options
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --dry-run)
+            DRY_RUN=true
+            export DRY_RUN=true
+            shift
+            ;;
+        --verbose)
+            VERBOSE=true
+            set -x # Bash debug execution
+            shift
+            ;;
+        --auto)
+            AUTO_MODE=true
+            shift
+            ;;
+        -h|--help)
+            show_help
+            exit 0
+            ;;
+        -v|--version)
+            echo "Linux Package Hardening & Repair Toolkit v$VERSION"
+            exit 0
+            ;;
+        *)
+            # Extra arguments passed to subcommands
+            EXTRA_ARGS+=("$1")
+            shift
+            ;;
+    esac
+done
+
+case "$SUBCOMMAND" in
+    update)
+        bash "$SCRIPT_DIR/update.sh"
+        ;;
+    upgrade)
+        bash "$SCRIPT_DIR/upgrade.sh" "${EXTRA_ARGS[@]}"
+        ;;
+    repair)
+        bash "$SCRIPT_DIR/repair.sh"
+        ;;
+    cleanup)
+        bash "$SCRIPT_DIR/cleanup.sh"
+        ;;
+    backup)
+        bash "$SCRIPT_DIR/package_backup.sh"
+        ;;
+    restore)
+        bash "$SCRIPT_DIR/package_restore.sh" "${EXTRA_ARGS[@]}"
+        ;;
+    security)
+        bash "$SCRIPT_DIR/security.sh"
+        ;;
+    report)
+        bash "$SCRIPT_DIR/report.sh"
+        ;;
+    menu)
+        bash "$TOOLKIT_ROOT/menu.sh"
+        ;;
+    -h|--help)
+        show_help
+        ;;
+    -v|--version)
+        echo "Linux Package Hardening & Repair Toolkit v$VERSION"
+        ;;
+    *)
+        log_error "Unknown subcommand '$SUBCOMMAND'. Type 'toolkit --help' for options."
+        exit 1
+        ;;
+esac
+
+# Turn off debugging if enabled
+if [ "$VERBOSE" = "true" ]; then
+    set +x
+fi
